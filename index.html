@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Método Gráfico — Investigación Operativa</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <h1>Investigación Operativa — Método Gráfico</h1>
+      <p>Graficador y solucionador de PL en 2 variables</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="panel">
+      <h2>Función objetivo</h2>
+      <div class="fo-grid">
+        <div class="fo-mode">
+          <label class="radio">
+            <input type="radio" name="mode" value="max" checked />
+            <span>Maximizar</span>
+          </label>
+          <label class="radio">
+            <input type="radio" name="mode" value="min" />
+            <span>Minimizar</span>
+          </label>
+        </div>
+        <div class="fo-inputs">
+          <div class="eq">
+            <label>a (x)</label>
+            <input type="number" step="any" id="foA" placeholder="ej. 2" value="2" />
+          </div>
+          <div class="eq">
+            <label>b (y)</label>
+            <input type="number" step="any" id="foB" placeholder="ej. 3" value="3" />
+          </div>
+          <div class="eq eq-text">
+            <span>Z = a·x + b·y</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Restricciones</h2>
+
+      <div class="toggles">
+        <label class="checkbox">
+          <input type="checkbox" id="nnx" checked />
+          <span>Incluir x ≥ 0</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" id="nny" checked />
+          <span>Incluir y ≥ 0</span>
+        </label>
+      </div>
+
+      <div id="constraints"></div>
+
+      <div class="actions">
+        <button id="addConstraint" class="btn">+ Agregar restricción</button>
+        <button id="clearConstraints" class="btn btn-secondary">Limpiar</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Verificar y graficar</h2>
+      <div class="actions">
+        <button id="solveBtn" class="btn btn-primary">Graficar y Resolver</button>
+        <button id="example1" class="btn btn-ghost">Cargar Ejemplo (sillas/mesas)</button>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="plot" width="800" height="600" aria-label="Gráfico del plano"></canvas>
+      </div>
+    </section>
+
+    <section class="results">
+      <div class="panel">
+        <h2>Vértices factibles</h2>
+        <div id="verticesList" class="list"></div>
+      </div>
+      <div class="panel">
+        <h2>Resultado</h2>
+        <div id="resultBox" class="result">Esperando datos...</div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>Hecho para SEMESTRE 2-2025 — Método Gráfico (PL 2D). Subible a Netlify tal cual.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
