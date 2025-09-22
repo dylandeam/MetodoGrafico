@@ -418,8 +418,11 @@ function convexHull(points) {
 // ========= Canvas responsivo y nítido =========
 function fitCanvasToParent() {
   const parent = plot.parentElement;
-  const cssWidth = parent.clientWidth;          // ancho real del contenedor
-  const cssHeight = Math.round(cssWidth * 0.75); // relación 4:3 (puedes cambiarla)
+  if (!parent) return;
+
+  // Ancho real del contenedor
+  const cssWidth = parent.getBoundingClientRect().width;
+  const cssHeight = Math.round(cssWidth * 0.75); // relación 4:3
 
   const dpr = window.devicePixelRatio || 1;
 
@@ -427,12 +430,13 @@ function fitCanvasToParent() {
   plot.style.width = cssWidth + "px";
   plot.style.height = cssHeight + "px";
 
-  // Ajuste real de resolución interna (para que se vea nítido y se descargue grande)
+  // Ajuste real de resolución interna
   plot.width = Math.floor(cssWidth * dpr);
   plot.height = Math.floor(cssHeight * dpr);
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
+
 
 
 // Redibujar al redimensionar
