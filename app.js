@@ -1,8 +1,5 @@
 // ========= Utilidades numéricas =========
-window.addEventListener("load", () => {
-  fitCanvasToParent();
-  drawScene([], [], null, null); // primer dibujo vacío
-});
+
 
 const EPS = 1e-7;
 
@@ -436,7 +433,10 @@ function fitCanvasToParent() {
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
-
+window.addEventListener("load", () => {
+  fitCanvasToParent();
+  drawScene([], [], null, null); // primer dibujo vacío
+});
 
 
 // Redibujar al redimensionar
