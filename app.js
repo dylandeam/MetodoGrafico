@@ -111,13 +111,45 @@ addConstraintRow();
 
 // Descargar gráfico como PNG
 document.getElementById("downloadBtn").addEventListener("click", () => {
-  // Asegura dibujo actualizado antes de exportar
-  if (lastDraw) drawScene(lastDraw.points, lastDraw.constraints, lastDraw.optimum, lastDraw.bounds);
+  // 1. Obtener ancho y alto reales del dispositivo
+  const targetWidth = window.innerWidth * (window.devicePixelRatio || 1);
+  const targetHeight = Math.round(targetWidth * 0.75); // misma proporción que en pantalla
+
+  // 2. Crear un canvas temporal
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = targetWidth;
+  tempCanvas.height = targetHeight;
+  const tempCtx = tempCanvas.getContext("2d");
+
+  // 3. Dibujar el gráfico en el canvas temporal
+  // Guardamos el canvas original
+  const originalWidth = plot.width;
+  const originalHeight = plot.height;
+
+  // Ajustamos el canvas principal al tamaño deseado
+  plot.width = targetWidth;
+  plot.height = targetHeight;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); // reset transform
+
+  // Redibujamos usando los últimos datos
+  drawScene(lastDraw.points, lastDraw.constraints, lastDraw.optimum, lastDraw.bounds);
+
+  // Copiamos el contenido al canvas temporal
+  tempCtx.drawImage(plot, 0, 0);
+
+  // Restauramos el tamaño original del canvas principal
+  plot.width = originalWidth;
+  plot.height = originalHeight;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  drawScene(lastDraw.points, lastDraw.constraints, lastDraw.optimum, lastDraw.bounds);
+
+  // 4. Descargar el PNG adaptado
   const link = document.createElement("a");
   link.download = "grafico_metodo_grafico.png";
-  link.href = plot.toDataURL("image/png");
+  link.href = tempCanvas.toDataURL("image/png");
   link.click();
 });
+
 
 // ========= Solver =========
 solveBtn.addEventListener("click", () => {
