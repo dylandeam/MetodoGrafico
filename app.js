@@ -1,4 +1,4 @@
-// ---------- Utilidades numéricas ----------
+// ========= Utilidades numéricas =========
 const EPS = 1e-7;
 
 function nearlyEqual(a, b, eps = EPS) {
@@ -6,9 +6,6 @@ function nearlyEqual(a, b, eps = EPS) {
 }
 
 function solve2x2(a1, b1, c1, a2, b2, c2) {
-  // Resuelve:
-  // a1 x + b1 y = c1
-  // a2 x + b2 y = c2
   const det = a1 * b2 - a2 * b1;
   if (Math.abs(det) < EPS) return null; // Paralelas o coincidentes
   const x = (c1 * b2 - c2 * b1) / det;
@@ -17,21 +14,30 @@ function solve2x2(a1, b1, c1, a2, b2, c2) {
 }
 
 function asLE(a, b, sign, c) {
-  // Convierte a*x + b*y [<=, >=, =] c en uno o dos semiplanos <=
   if (sign === "<=") return [{ a, b, c }];
   if (sign === ">=") return [{ a: -a, b: -b, c: -c }];
-  // "=" -> dos lados
-  return [
-    { a, b, c },
-    { a: -a, b: -b, c: -c },
-  ];
+  // "=" -> dos caras
+  return [{ a, b, c }, { a: -a, b: -b, c: -c }];
 }
 
 function satisfies(point, semiplanes, eps = 1e-6) {
   return semiplanes.every(({ a, b, c }) => a * point.x + b * point.y <= c + eps);
 }
 
-// ---------- Estado y UI ----------
+function round(n, d = 4) {
+  return Math.abs(n) < 1e-12 ? 0 : Number(n.toFixed(d));
+}
+
+function niceStep(range) {
+  if (!isFinite(range) || range <= 0) return 1;
+  const raw = range / 10;
+  const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / pow;
+  const base = n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10;
+  return base * pow;
+}
+
+// ========= Estado y referencias UI =========
 const constraintsEl = document.getElementById("constraints");
 const addBtn = document.getElementById("addConstraint");
 const clearBtn = document.getElementById("clearConstraints");
@@ -40,21 +46,21 @@ const verticesList = document.getElementById("verticesList");
 const resultBox = document.getElementById("resultBox");
 const plot = document.getElementById("plot");
 const ctx = plot.getContext("2d");
-
 const nnx = document.getElementById("nnx");
 const nny = document.getElementById("nny");
 
+let lastDraw = { points: [], constraints: [], optimum: null, bounds: null };
+
+// ========= UI helpers =========
 function mode() {
   const v = [...document.querySelectorAll('input[name="mode"]')]
     .find(r => r.checked)?.value;
   return v === "min" ? "min" : "max";
 }
 
-// Agregar fila de restricción
 function addConstraintRow({ a = "", b = "", sign = "<=", c = "" } = {}) {
   const row = document.createElement("div");
   row.className = "constraint-row";
-
   row.innerHTML = `
     <div class="eq">
       <label>a (x)</label>
@@ -78,18 +84,14 @@ function addConstraintRow({ a = "", b = "", sign = "<=", c = "" } = {}) {
     </div>
     <button class="remove" title="Eliminar">&times;</button>
   `;
-
-  row.querySelector(".remove").addEventListener("click", () => {
-    row.remove();
-  });
-
+  row.querySelector(".remove").addEventListener("click", () => row.remove());
   constraintsEl.appendChild(row);
 }
 
+// Botones de UI
 addBtn.addEventListener("click", () => addConstraintRow());
 clearBtn.addEventListener("click", () => { constraintsEl.innerHTML = ""; });
 
-// Cargar ejemplo clásico (sillas/mesas del PDF)
 document.getElementById("example1").addEventListener("click", () => {
   document.getElementById("foA").value = "50";
   document.getElementById("foB").value = "80";
@@ -105,7 +107,17 @@ document.getElementById("example1").addEventListener("click", () => {
 // Inicial: una restricción vacía
 addConstraintRow();
 
-// ---------- Resolver ----------
+// Descargar gráfico como PNG
+document.getElementById("downloadBtn").addEventListener("click", () => {
+  // Asegura dibujo actualizado antes de exportar
+  if (lastDraw) drawScene(lastDraw.points, lastDraw.constraints, lastDraw.optimum, lastDraw.bounds);
+  const link = document.createElement("a");
+  link.download = "grafico_metodo_grafico.png";
+  link.href = plot.toDataURL("image/png");
+  link.click();
+});
+
+// ========= Solver =========
 solveBtn.addEventListener("click", () => {
   const aFO = parseFloat(document.getElementById("foA").value);
   const bFO = parseFloat(document.getElementById("foB").value);
@@ -128,20 +140,13 @@ solveBtn.addEventListener("click", () => {
     constraints.push({ a, b, sign, c });
   }
 
-  // Restringir x>=0, y>=0 si están tildadas
   if (nnx.checked) constraints.push({ a: 1, b: 0, sign: ">=", c: 0 }); // x >= 0
   if (nny.checked) constraints.push({ a: 0, b: 1, sign: ">=", c: 0 }); // y >= 0
 
   const semiplanes = constraints.flatMap(k => asLE(k.a, k.b, k.sign, k.c));
+  const boundaries = constraints.map(k => ({ a: k.a, b: k.b, c: k.c }));
 
-  // Construir conjunto de rectas de frontera (para candidatos de intersección)
-  const boundaries = [];
-  for (const k of constraints) {
-    // si es "=", mantenemos una sola recta; si es <= o >= también basta una recta
-    boundaries.push({ a: k.a, b: k.b, c: k.c });
-  }
-
-  // Candidatos: intersecciones de todas las parejas de rectas de frontera
+  // Generar candidatos por intersección de todas las rectas de frontera
   const candidates = [];
   for (let i = 0; i < boundaries.length; i++) {
     for (let j = i + 1; j < boundaries.length; j++) {
@@ -149,62 +154,48 @@ solveBtn.addEventListener("click", () => {
         boundaries[i].a, boundaries[i].b, boundaries[i].c,
         boundaries[j].a, boundaries[j].b, boundaries[j].c
       );
-      if (p && isFinite(p.x) && isFinite(p.y)) {
-        candidates.push(p);
-      }
+      if (p && isFinite(p.x) && isFinite(p.y)) candidates.push(p);
     }
   }
 
-  // Añadir potencialmente intersecciones con ejes si no se incluyeron no-negatividad
-  // (Optativo: ya cubierto si nnx/nny están incluidas)
-
-  // Filtrar por factibilidad
+  // Filtrar factibles
   const feasible = candidates.filter(p => satisfies(p, semiplanes));
 
   if (feasible.length === 0) {
-    drawScene([], constraints, null);
+    lastDraw = { points: [], constraints, optimum: null, bounds: null };
+    drawScene([], constraints, null, null);
     showResult("Región factible vacía (no factible).", "bad");
     verticesList.innerHTML = "";
     return;
   }
 
-  // Evaluar FO en candidatos factibles
-  const evaluated = feasible.map(p => ({
-    x: p.x,
-    y: p.y,
-    z: aFO * p.x + bFO * p.y
-  }));
+  // Uniquificar
+  const uniq = [];
+  for (const p of feasible) {
+    if (!uniq.some(q => nearlyEqual(p.x, q.x) && nearlyEqual(p.y, q.y))) uniq.push(p);
+  }
 
-  // Ordenar y elegir óptimo
+  // Evaluar FO
+  const evaluated = uniq.map(p => ({ x: p.x, y: p.y, z: aFO * p.x + bFO * p.y }));
   evaluated.sort((p, q) => p.z - q.z);
   const opt = mode() === "max" ? evaluated[evaluated.length - 1] : evaluated[0];
 
-  // Render
   listVertices(evaluated);
-  drawScene(evaluated, constraints, opt);
+  lastDraw = { points: evaluated, constraints, optimum: opt, bounds: null };
+  drawScene(evaluated, constraints, opt, null);
+
   const lbl = mode() === "max" ? "Máximo" : "Mínimo";
   showResult(`${lbl}: Z = ${round(opt.z)} en (x=${round(opt.x)}, y=${round(opt.y)})`, "ok");
 });
 
-// ---------- UI de resultados ----------
+// ========= Resultados UI =========
 function listVertices(points) {
-  // Uniquificar puntos cercanos
-  const uniq = [];
-  for (const p of points) {
-    if (!uniq.some(q => nearlyEqual(p.x, q.x) && nearlyEqual(p.y, q.y))) {
-      uniq.push(p);
-    }
-  }
-  // Orden por valor descendente para max intuitivo
-  const sorted = uniq.slice().sort((a, b) => b.z - a.z);
+  const sorted = points.slice().sort((a, b) => b.z - a.z);
   verticesList.innerHTML = "";
   for (const v of sorted) {
     const item = document.createElement("div");
     item.className = "vertex";
-    item.innerHTML = `
-      <div><strong>(x,y):</strong> (${round(v.x)}, ${round(v.y)})</div>
-      <div class="tag"><strong>Z:</strong> ${round(v.z)}</div>
-    `;
+    item.innerHTML = `<div>(x,y): (${round(v.x)}, ${round(v.y)})</div><div class="tag">Z: ${round(v.z)}</div>`;
     verticesList.appendChild(item);
   }
 }
@@ -215,26 +206,24 @@ function showResult(text, cls = "") {
   resultBox.textContent = text;
 }
 
-function round(n, d = 4) {
-  return Math.abs(n) < 1e-12 ? 0 : Number(n.toFixed(d));
-}
+// ========= Gráfico =========
+function drawScene(points, constraints, optimum, fixedBounds) {
+  // Canvas nítido (HiDPI) y responsivo al contenedor
+  fitCanvasToParent();
 
-// ---------- Gráfico ----------
-function drawScene(points, constraints, optimum) {
-  // Determinar líneas a dibujar
   const lines = constraints.map(k => ({ a: k.a, b: k.b, c: k.c, sign: k.sign }));
 
-  // Límites del mundo (para ajustar zoom)
-  const xs = points.map(p => p.x);
-  const ys = points.map(p => p.y);
+  // Determinar límites del mundo
+  let xs = points.map(p => p.x);
+  let ys = points.map(p => p.y);
 
-  // Si no hay puntos, generar algunos cortes de ejes a partir de líneas
+  // Si no hay puntos, estimar con cortes de ejes
   if (xs.length === 0 && ys.length === 0) {
     for (const L of lines) {
-      // Intersecciones con ejes: x=0 => b*y=c ; y=0 => a*x=c
-      if (Math.abs(L.b) > EPS) ys.push(L.c / L.b);
-      if (Math.abs(L.a) > EPS) xs.push(L.c / L.a);
+      if (Math.abs(L.b) > EPS && isFinite(L.c / L.b)) ys.push(L.c / L.b);
+      if (Math.abs(L.a) > EPS && isFinite(L.c / L.a)) xs.push(L.c / L.a);
     }
+    xs.push(0); ys.push(0);
   }
 
   let minX = Math.min(0, ...(xs.filter(Number.isFinite)));
@@ -247,12 +236,20 @@ function drawScene(points, constraints, optimum) {
   if (!isFinite(minY)) minY = 0;
   if (!isFinite(maxY)) maxY = 10;
 
-  // Margen
-  const padX = (maxX - minX) * 0.2 || 1;
-  const padY = (maxY - minY) * 0.2 || 1;
+  // Margen ampliado
+  const baseX = maxX - minX || 10;
+  const baseY = maxY - minY || 10;
+  let padX = baseX * 0.4;
+  let padY = baseY * 0.4;
   minX -= padX; maxX += padX; minY -= padY; maxY += padY;
 
-  // Funciones de transformación (mundo -> pantalla)
+  if (fixedBounds) {
+    ({ minX, maxX, minY, maxY } = fixedBounds);
+  } else {
+    lastDraw.bounds = { minX, maxX, minY, maxY };
+  }
+
+  // Transformaciones
   const W = plot.width, H = plot.height;
   function toScreen(p) {
     const sx = ((p.x - minX) / (maxX - minX)) * W;
@@ -260,30 +257,72 @@ function drawScene(points, constraints, optimum) {
     return { x: sx, y: sy };
   }
 
-  // Limpiar
+  // Fondo
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = "#081017";
   ctx.fillRect(0, 0, W, H);
 
-  // Ejes
-  ctx.strokeStyle = "#243242";
+  // Grid y ejes
+  const stepX = niceStep(maxX - minX);
+  const stepY = niceStep(maxY - minY);
+
   ctx.lineWidth = 1;
-  // Eje X (y=0)
-  if (minY <= 0 && maxY >= 0) {
-    const p1 = toScreen({ x: minX, y: 0 });
-    const p2 = toScreen({ x: maxX, y: 0 });
+  ctx.strokeStyle = "#15202b";
+  for (let x = Math.ceil(minX / stepX) * stepX; x <= maxX + EPS; x += stepX) {
+    const p1 = toScreen({ x, y: minY });
+    const p2 = toScreen({ x, y: maxY });
     ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
   }
-  // Eje Y (x=0)
-  if (minX <= 0 && maxX >= 0) {
-    const p1 = toScreen({ x: 0, y: minY });
-    const p2 = toScreen({ x: 0, y: maxY });
+  for (let y = Math.ceil(minY / stepY) * stepY; y <= maxY + EPS; y += stepY) {
+    const p1 = toScreen({ x: minX, y });
+    const p2 = toScreen({ x: maxX, y });
     ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
   }
 
-  // Dibujar rectas de restricciones
+  // Eje X
+  if (minY <= 0 && maxY >= 0) {
+    const p1 = toScreen({ x: minX, y: 0 });
+    const p2 = toScreen({ x: maxX, y: 0 });
+    ctx.strokeStyle = "#243242";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+  }
+  // Eje Y
+  if (minX <= 0 && maxX >= 0) {
+    const p1 = toScreen({ x: 0, y: minY });
+    const p2 = toScreen({ x: 0, y: maxY });
+    ctx.strokeStyle = "#243242";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+  }
+
+  // Marcas y etiquetas
+  ctx.fillStyle = "#6f8196";
+  ctx.font = "12px ui-sans-serif, system-ui, -apple-system";
+  ctx.strokeStyle = "#445266";
+  for (let x = Math.ceil(minX / stepX) * stepX; x <= maxX + EPS; x += stepX) {
+    const p = toScreen({ x, y: 0 });
+    if (minY <= 0 && maxY >= 0) {
+      ctx.beginPath(); ctx.moveTo(p.x, p.y - 4); ctx.lineTo(p.x, p.y + 4); ctx.stroke();
+      ctx.fillText(`${round(x, 2)}`, p.x + 2, p.y - 6);
+    } else {
+      const yb = toScreen({ x, y: minY }).y;
+      ctx.fillText(`${round(x, 2)}`, p.x + 2, yb - 6);
+    }
+  }
+  for (let y = Math.ceil(minY / stepY) * stepY; y <= maxY + EPS; y += stepY) {
+    const p = toScreen({ x: 0, y });
+    if (minX <= 0 && maxX >= 0) {
+      ctx.beginPath(); ctx.moveTo(p.x - 4, p.y); ctx.lineTo(p.x + 4, p.y); ctx.stroke();
+      ctx.fillText(`${round(y, 2)}`, p.x + 6, p.y - 2);
+    } else {
+      const xb = toScreen({ x: minX, y }).x;
+      ctx.fillText(`${round(y, 2)}`, xb + 6, p.y - 2);
+    }
+  }
+
+  // Rectas de restricciones
   for (const L of lines) {
-    // Tomar dos puntos lejanos sobre la recta a*x + b*y = c
     let pts = [];
     if (Math.abs(L.b) > EPS) {
       const y1 = (L.c - L.a * minX) / L.b;
@@ -292,18 +331,16 @@ function drawScene(points, constraints, optimum) {
     } else if (Math.abs(L.a) > EPS) {
       const x = L.c / L.a;
       pts = [{ x, y: minY }, { x, y: maxY }];
-    } else {
-      continue;
-    }
+    } else continue;
 
     const s1 = toScreen(pts[0]);
     const s2 = toScreen(pts[1]);
     ctx.strokeStyle = "#3a4c63";
-    ctx.lineWidth = 1.25;
+    ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(s1.x, s1.y); ctx.lineTo(s2.x, s2.y); ctx.stroke();
   }
 
-  // Región factible: aproximar con hull si hay puntos
+  // Región factible (hull de puntos)
   if (points.length >= 2) {
     const hull = convexHull(points);
     if (hull.length >= 2) {
@@ -323,7 +360,7 @@ function drawScene(points, constraints, optimum) {
     }
   }
 
-  // Vértices
+  // Vértices factibles
   for (const p of points) {
     const s = toScreen(p);
     ctx.fillStyle = "#69a1ff";
@@ -337,16 +374,15 @@ function drawScene(points, constraints, optimum) {
     ctx.beginPath(); ctx.arc(s.x, s.y, 6, 0, Math.PI * 2); ctx.fill();
   }
 
-  // Pequeñas marcas en ejes
-  ctx.fillStyle = "#6f8196";
-  ctx.font = "12px ui-sans-serif, system-ui";
-  if (minX <= 0 && maxX >= 0) {
-    const s = toScreen({ x: 0, y: 0 });
-    ctx.fillText("0", s.x + 4, s.y - 4);
+  // Origen
+  if (minX <= 0 && maxX >= 0 && minY <= 0 && maxY >= 0) {
+    const o = toScreen({ x: 0, y: 0 });
+    ctx.fillStyle = "#6f8196";
+    ctx.fillText("0", o.x + 4, o.y - 4);
   }
 }
 
-// Convex hull (Monotone chain) para ordenar la región
+// Convex hull (Monotone chain)
 function convexHull(points) {
   const pts = points
     .map(p => ({ x: p.x, y: p.y }))
@@ -373,3 +409,25 @@ function convexHull(points) {
   lower.pop();
   return lower.concat(upper);
 }
+
+// ========= Canvas responsivo y nítido =========
+function fitCanvasToParent() {
+  const parent = plot.parentElement;
+  const cssWidth = parent.clientWidth;
+  const cssHeight = Math.round(cssWidth * 0.75); // relación 4:3
+  const dpr = window.devicePixelRatio || 1;
+
+  plot.style.width = cssWidth + "px";
+  plot.style.height = cssHeight + "px";
+  plot.width = Math.floor(cssWidth * dpr);
+  plot.height = Math.floor(cssHeight * dpr);
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // normaliza unidades
+}
+
+// Redibujar al redimensionar
+window.addEventListener("resize", () => {
+  if (!lastDraw) return;
+  const bounds = lastDraw.bounds || null;
+  drawScene(lastDraw.points, lastDraw.constraints, lastDraw.optimum, bounds);
+});

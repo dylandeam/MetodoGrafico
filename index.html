@@ -46,7 +46,6 @@
 
     <section class="panel">
       <h2>Restricciones</h2>
-
       <div class="toggles">
         <label class="checkbox">
           <input type="checkbox" id="nnx" checked />
@@ -70,10 +69,14 @@
       <h2>Verificar y graficar</h2>
       <div class="actions">
         <button id="solveBtn" class="btn btn-primary">Graficar y Resolver</button>
-        <button id="example1" class="btn btn-ghost">Cargar Ejemplo (sillas/mesas)</button>
+        <button id="example1" class="btn btn-ghost">Cargar ejemplo (sillas/mesas)</button>
       </div>
+
       <div class="canvas-wrap">
         <canvas id="plot" width="800" height="600" aria-label="Gráfico del plano"></canvas>
+      </div>
+      <div class="actions">
+        <button id="downloadBtn" class="btn btn-secondary">Descargar gráfico</button>
       </div>
     </section>
 
@@ -87,10 +90,20 @@
         <div id="resultBox" class="result">Esperando datos...</div>
       </div>
     </section>
+
+    <section class="panel">
+      <h2>Integrantes</h2>
+      <ul class="members">
+        <li>Dylan Arévalo Mendiola</li>
+        <li>Yuliana Molina Roca</li>
+        <li>Dylan Gabriel Cossio Aguilera</li>
+        <li>Miguel Cossio Aguilera</li>
+      </ul>
+    </section>
   </main>
 
   <footer class="app-footer">
-    <p>Hecho para SEMESTRE 2-2025 — Método Gráfico (PL 2D). Subible a Netlify tal cual.</p>
+    <p>Proyecto Método Gráfico </p>
   </footer>
 
   <script src="app.js"></script>

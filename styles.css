@@ -50,14 +50,9 @@ h2 {
   color: #dce7f3;
 }
 
-.fo-grid {
-  display: grid;
-  gap: 12px;
-}
+.fo-grid { display: grid; gap: 12px; }
 .fo-mode { display: flex; gap: 16px; }
-.radio, .checkbox {
-  display: inline-flex; align-items: center; gap: 8px; color: var(--muted);
-}
+.radio, .checkbox { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
 
 .fo-inputs {
   display: grid;
@@ -102,7 +97,7 @@ h2 {
 
 .canvas-wrap {
   width: 100%;
-  overflow: auto;
+  overflow: hidden;
   border-radius: 8px;
   border: 1px dashed var(--border);
   background: #0a0d11;
@@ -115,10 +110,7 @@ h2 {
   gap: 16px;
 }
 
-.list {
-  display: grid;
-  gap: 8px;
-}
+.list { display: grid; gap: 8px; }
 .vertex {
   display: flex; justify-content: space-between; align-items: center;
   padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
@@ -131,9 +123,14 @@ h2 {
   background: #0c1116; border: 1px solid var(--border);
   border-radius: 8px; padding: 12px;
 }
-.result .ok { color: var(--ok); }
-.result .warn { color: #ffd166; }
-.result .bad { color: var(--danger); }
+.result.ok { color: var(--ok); }
+.result.bad { color: var(--danger); }
+
+.members {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: #d7e4f2;
+}
 
 @media (min-width: 900px) {
   .fo-grid { grid-template-columns: 1fr 2fr; align-items: center; }
