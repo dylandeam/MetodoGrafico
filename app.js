@@ -1,4 +1,9 @@
 // ========= Utilidades numéricas =========
+window.addEventListener("load", () => {
+  fitCanvasToParent();
+  drawScene([], [], null, null); // primer dibujo vacío
+});
+
 const EPS = 1e-7;
 
 function nearlyEqual(a, b, eps = EPS) {
@@ -413,21 +418,28 @@ function convexHull(points) {
 // ========= Canvas responsivo y nítido =========
 function fitCanvasToParent() {
   const parent = plot.parentElement;
-  const cssWidth = parent.clientWidth;
-  const cssHeight = Math.round(cssWidth * 0.75); // relación 4:3
+  const cssWidth = parent.clientWidth;          // ancho real del contenedor
+  const cssHeight = Math.round(cssWidth * 0.75); // relación 4:3 (puedes cambiarla)
+
   const dpr = window.devicePixelRatio || 1;
 
+  // Ajuste visual
   plot.style.width = cssWidth + "px";
   plot.style.height = cssHeight + "px";
+
+  // Ajuste real de resolución interna (para que se vea nítido y se descargue grande)
   plot.width = Math.floor(cssWidth * dpr);
   plot.height = Math.floor(cssHeight * dpr);
 
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // normaliza unidades
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
+
 
 // Redibujar al redimensionar
 window.addEventListener("resize", () => {
-  if (!lastDraw) return;
-  const bounds = lastDraw.bounds || null;
-  drawScene(lastDraw.points, lastDraw.constraints, lastDraw.optimum, bounds);
+  fitCanvasToParent();
+  if (lastDraw) {
+    drawScene(lastDraw.points, lastDraw.constraints, lastDraw.optimum, lastDraw.bounds);
+  }
 });
+

@@ -97,12 +97,18 @@ h2 {
 
 .canvas-wrap {
   width: 100%;
-  overflow: hidden;
+  max-width: 100%;
   border-radius: 8px;
   border: 1px dashed var(--border);
   background: #0a0d11;
 }
-#plot { display: block; width: 100%; height: auto; }
+
+#plot {
+  display: block;
+  width: 100%;   /* ocupa todo el ancho del contenedor */
+  height: auto;  /* mantiene proporción */
+}
+
 
 .results {
   display: grid;
